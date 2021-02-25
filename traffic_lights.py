@@ -1,6 +1,7 @@
 import unittest
 from copy import deepcopy
 from itertools import cycle
+from random import random
 from typing import List, Dict, Tuple
 
 car_score = 1000
@@ -19,22 +20,37 @@ road_lengths = {
     "rue-de-rome": 2
 }
 
+road_destinations = {
+    "rue-d-amsterdam": 1,
+    "rue-d-athenes": 1,
+    "rue-de-londres": 0,
+    "rue-de-moscou": 3,
+    "rue-de-rome": 2,
+
+}
+
+
 graph = {
     0: {
         "out": {'rue-d-amsterdam'},
-        "in": {"rue-de-londres"}
+        "in": {"rue-de-londres"},
+        "schedule": [('rue-de-londres', 2)],
     },
     1: {
         "out": {"rue-de-moscou"},
-        "in": {"rue-d-amsterdam", "rue-d-athenes"}
+        "in": {"rue-d-amsterdam", "rue-d-athenes"},
+        "schedule": [('rue-d-athenes', 2), ('rue-d-amsterdam', 1)],
+
     },
     2: {
         "out": {"rue-de-londres", "rue-de-rome"},
-        "in": {"rue-de-moscou", "rue-de-rome"}
+        "in": {"rue-de-moscou"},
+        "schedule": [('rue-de-moscou', 1)],
     },
     3: {
         "out": {"rue-d-athenes"},
-        "in": {"rue-de-rome"}
+        "in": {"rue-de-rome"},
+        "schedule": []
     }
 }
 
@@ -54,8 +70,81 @@ green_light_schedule = [
     ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'],  # t =  6
 ]
 
+Schedule = Dict[int, List[Tuple[str, int]]]
 
-def schedule_to_green_lights(schedule: Dict[int, List[Tuple[str, int]]], time: int) -> List[List[str]]:
+class Algorithm:
+    """OOoooo"""
+
+    CHILDREN = 5
+
+    def __init__(self, data):
+        self.init_graph(data)
+        self.init_roads(data)
+
+    def _init_roads(self, data):
+        self.road_lengths = road_lengths
+        self.roads_destinations = road_destinations
+
+    def _init_graph(self, data):
+        self.graph  = {
+            0: {
+                "out": {'rue-d-amsterdam'},
+                "in": {"rue-de-londres"},
+                "schedule": [],
+            },
+            1: {
+                "out": {"rue-de-moscou"},
+                "in": {"rue-d-amsterdam", "rue-d-athenes"},
+                "schedule": [],
+
+            },
+            2: {
+                "out": {"rue-de-londres", "rue-de-rome"},
+                "in": {"rue-de-moscou"},
+                "schedule": [],
+            },
+            3: {
+                "out": {"rue-d-athenes"},
+                "in": {"rue-de-rome"},
+                "schedule": []
+            }
+        }
+
+    @property
+    def schedule(self) -> Schedule:
+        # TODO: Optimise
+        return {key: self.graph[key]['schedule'] for key in self.graph.keys()}
+
+    def run(self) -> int:
+        children_schedules = self.reproduce()
+        scores = [
+            score(self.paths, schedule, self.road_lengths, self.time, self.car_score)
+            for schedule in children_schedules
+        ]
+
+    def reproduce(self) -> List[Schedule]:
+        def update_randomly(keys, schedule) -> Schedule:
+            class UpdateChoices:
+                ADD_STREET = 0
+                REMOVE_STREET = 1
+                MODIFY_STREET = 2
+            key_to_update = random.choice(keys)
+            schedule = deepcopy(schedule)
+            updates = [UpdateChoices.MODIFY_STREET]
+            current_roads = [schedule_data[0] for schedule_data in schedule[key_to_update]]
+            in_roads = self.graph[key_to_update]['in']
+            if len(current_roads) < len(in_roads):
+                updates.append(UpdateChoices.ADD_STREET)
+            if len(current_roads) > 1:
+                updates.append(UpdateChoices.REMOVE_STREET)
+
+
+            schedule[key_to_update]
+        schedule = self.schedule
+        return list(schedule)
+
+
+def schedule_to_green_lights(schedule: Schedule, time: int) -> List[List[str]]:
     green_lights = [[] for _ in range(time + 1)]
     for key in schedule.keys():
         time_left = 0
