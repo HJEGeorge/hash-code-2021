@@ -1,7 +1,7 @@
 import unittest
 from copy import deepcopy
 from itertools import cycle
-from random import random
+import random
 from typing import List, Dict, Tuple
 
 car_score = 1000
@@ -182,21 +182,21 @@ class Algorithm:
             if update_choice == UpdateChoices.ADD_STREET:
                 new_roads = [road for road in in_roads if road not in current_roads]
                 new_road_choice = random.choice(new_roads)
-                new_road_time = random.randint(1, max_time)
+                new_road_time = random.randint(1, max_time - 1)
                 schedule[key_to_update].append((new_road_choice, new_road_time))
             elif update_choice == UpdateChoices.REMOVE_STREET:
                 index_to_delete = random.randint(0, len(schedule[key_to_update]))
                 del schedule[key_to_update][index_to_delete]
             elif update_choice == UpdateChoices.MODIFY_STREET:
                 # TODO: Optimise this to prefer smaller times
-                index_to_update = random.randint(0, len(schedule[key_to_update]))
-                random_time = (random.randint(1, max_time) + schedule[key_to_update][index_to_update][1]) % max_time
+                index_to_update = random.randint(0, len(schedule[key_to_update]) - 1)
+                random_time = (random.randint(1, max_time - 1) + schedule[key_to_update][index_to_update][1]) % max_time
                 schedule[key_to_update][index_to_update] = (schedule[key_to_update][index_to_update][0], random_time)
             return schedule
 
         schedules = []
         for _ in range(self.CHILDREN):
-            schedules.append(update_randomly(self.graph.keys(), schedule))
+            schedules.append(update_randomly(list(self.graph.keys()), schedule))
         return schedules
 
     def finish(self):
