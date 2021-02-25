@@ -29,7 +29,6 @@ road_destinations = {
 
 }
 
-
 graph = {
     0: {
         "out": {'rue-d-amsterdam'},
@@ -72,21 +71,30 @@ green_light_schedule = [
 
 Schedule = Dict[int, List[Tuple[str, int]]]
 
+
 class Algorithm:
-    """OOoooo"""
+    """oooOoooOoo"""
 
     CHILDREN = 5
+    MODIFY_MULTIPLIER = 2  # Chance to modify a street rather than delete or add (if available)
+    MAX_GENERATIONS = 100
 
     def __init__(self, data):
-        self.init_graph(data)
-        self.init_roads(data)
+        self._init_graph(data)
+        self._init_roads(data)
+        self.time = max_time
+        self.car_score = car_score
+        self.current_score = 0
+        self.generation = 0
 
     def _init_roads(self, data):
+        # TODO: Handle data inputting
         self.road_lengths = road_lengths
         self.roads_destinations = road_destinations
 
     def _init_graph(self, data):
-        self.graph  = {
+        # TODO: Handle data inputting
+        self.graph = {
             0: {
                 "out": {'rue-d-amsterdam'},
                 "in": {"rue-de-londres"},
@@ -115,33 +123,84 @@ class Algorithm:
         # TODO: Optimise
         return {key: self.graph[key]['schedule'] for key in self.graph.keys()}
 
-    def run(self) -> int:
+    def run(self) -> None:
+        # Reproduce
         children_schedules = self.reproduce()
+        self.generation += 1
+        # Evaluate fitness
         scores = [
-            score(self.paths, schedule, self.road_lengths, self.time, self.car_score)
+            self.score(schedule)
             for schedule in children_schedules
         ]
+        # Selection
+        max_score = max(scores)
+        if max_score < self.current_score or self.generation > self.MAX_GENERATIONS:
+            self.finish()
+        else:
+            max_index = scores.index(max_score)
+            selection = children_schedules[max_index]
+            self.update_graph(selection)
+            print(f"Gen #{self.generation}: new score {max_score}, previous {self.current_score}")
+            self.run()
+
+    def update_graph(self, schedule) -> None:
+        for key in schedule.keys():
+            self.graph[key]['schedule'] = schedule['key']
+        self.current_score = self.score()
+
+    def score(self, schedule=None) -> int:
+        if schedule is None:
+            schedule = self.schedule
+
+        return score(
+            self.paths,
+            schedule_to_green_lights(schedule, self.time),
+            self.road_lengths,
+            self.time,
+            self.car_score
+        )
 
     def reproduce(self) -> List[Schedule]:
+        schedule = self.schedule
+
         def update_randomly(keys, schedule) -> Schedule:
             class UpdateChoices:
                 ADD_STREET = 0
                 REMOVE_STREET = 1
                 MODIFY_STREET = 2
+
             key_to_update = random.choice(keys)
             schedule = deepcopy(schedule)
-            updates = [UpdateChoices.MODIFY_STREET]
+            updates = [UpdateChoices.MODIFY_STREET] * 2
             current_roads = [schedule_data[0] for schedule_data in schedule[key_to_update]]
             in_roads = self.graph[key_to_update]['in']
             if len(current_roads) < len(in_roads):
                 updates.append(UpdateChoices.ADD_STREET)
             if len(current_roads) > 1:
                 updates.append(UpdateChoices.REMOVE_STREET)
+            update_choice = random.choice(updates)
+            if update_choice == UpdateChoices.ADD_STREET:
+                new_roads = [road for road in in_roads if road not in current_roads]
+                new_road_choice = random.choice(new_roads)
+                new_road_time = random.randint(1, max_time)
+                schedule[key_to_update].append((new_road_choice, new_road_time))
+            elif update_choice == UpdateChoices.REMOVE_STREET:
+                index_to_delete = random.randint(0, len(schedule[key_to_update]))
+                del schedule[key_to_update][index_to_delete]
+            elif update_choice == UpdateChoices.MODIFY_STREET:
+                # TODO: Optimise this to prefer smaller times
+                index_to_update = random.randint(0, len(schedule[key_to_update]))
+                random_time = (random.randint(1, max_time) + schedule[key_to_update][index_to_update][1]) % max_time
+                schedule[key_to_update][index_to_update] = (schedule[key_to_update][index_to_update][0], random_time)
+            return schedule
 
+        schedules = []
+        for _ in range(self.CHILDREN):
+            schedules.append(update_randomly(self.graph.keys(), schedule))
+        return schedules
 
-            schedule[key_to_update]
-        schedule = self.schedule
-        return list(schedule)
+    def finish(self):
+        print(self.schedule)
 
 
 def schedule_to_green_lights(schedule: Schedule, time: int) -> List[List[str]]:
@@ -160,7 +219,8 @@ def schedule_to_green_lights(schedule: Schedule, time: int) -> List[List[str]]:
     return green_lights
 
 
-def score(paths: List[List[str]], schedule: List[List[str]], roads: Dict[str, int], max_time: int, car_score: int) -> int:
+def score(paths: List[List[str]], green_lights: List[List[str]], roads: Dict[str, int], max_time: int,
+          car_score: int) -> int:
     score = 0
     car_stuck_time = [0] * len(paths)
     car_paths_copy = deepcopy([path[1:] for path in paths])
@@ -211,7 +271,6 @@ class TestScoring(unittest.TestCase):
 class TestGreenLightGenerator(unittest.TestCase):
 
     def test_green_light_generation(self):
-
         max_time = 6
 
         schedule = {
