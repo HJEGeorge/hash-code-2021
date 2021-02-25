@@ -1,6 +1,7 @@
 import unittest
 from copy import deepcopy
-from typing import List, Dict
+from itertools import cycle
+from typing import List, Dict, Tuple
 
 car_score = 1000
 max_time = 6
@@ -54,6 +55,22 @@ green_light_schedule = [
 ]
 
 
+def schedule_to_green_lights(schedule: Dict[int, List[Tuple[str, int]]], time: int) -> List[List[str]]:
+    green_lights = [[] for _ in range(time + 1)]
+    for key in schedule.keys():
+        time_left = 0
+        green_street = None
+        lights = cycle(schedule[key])
+        for t in range(time + 1):
+            if time_left == 0:
+                green_street, green_time = next(lights)
+                time_left += green_time - 1  # 1 second goes by already
+            else:
+                time_left -= 1
+            green_lights[t].append(green_street)
+    return green_lights
+
+
 def score(paths: List[List[str]], schedule: List[List[str]], roads: Dict[str, int], max_time: int, car_score: int) -> int:
     score = 0
     car_stuck_time = [0] * len(paths)
@@ -75,7 +92,7 @@ def score(paths: List[List[str]], schedule: List[List[str]], roads: Dict[str, in
 
 class TestScoring(unittest.TestCase):
 
-    def test_exmaple_scoring(self):
+    def test_example_scoring(self):
         score_per_car = 1000
         max_time = 6
         schedule = [
@@ -100,3 +117,28 @@ class TestScoring(unittest.TestCase):
         }
         expected_score = 1002
         self.assertEqual(expected_score, score(car_paths, schedule, road_lengths, max_time, car_score))
+
+
+class TestGreenLightGenerator(unittest.TestCase):
+
+    def test_green_light_generation(self):
+
+        max_time = 6
+
+        schedule = {
+            0: [('rue-de-londres', 2)],
+            1: [('rue-d-athenes', 2), ('rue-d-amsterdam', 1)],
+            2: [('rue-de-moscou', 1)]
+        }
+
+        expected_green_lights = [
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'],  # t =  0
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'],  # t =  1
+            ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou'],  # t =  2
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'],  # t =  3
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'],  # t =  4
+            ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou'],  # t =  5
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'],  # t =  6
+        ]
+
+        self.assertEqual(expected_green_lights, schedule_to_green_lights(schedule, max_time))
