@@ -1,10 +1,12 @@
+import unittest
 from copy import deepcopy
+from typing import List, Dict
 
 car_score = 1000
-time = 6
+max_time = 6
 
 car_paths = [
-    ['rue-de-londres', 'rue-d-amsterdam' 'rue-de-moscou rue-de-rome'],
+    ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou', 'rue-de-rome'],
     ['rue-d-athenes', 'rue-de-moscou', 'rue-de-londres'],
 ]
 
@@ -36,28 +38,63 @@ graph = {
 }
 
 schedule = {
-    0: [('rue-d-londres', 2)],
+    0: [('rue-de-londres', 2)],
     1: [('rue-d-athenes', 2), ('rue-d-amsterdam', 1)],
     2: [('rue-de-moscou', 1)]
 }
 
 green_light_schedule = [
-    ['rue-d-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  0
-    ['rue-d-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  1
-    ['rue-d-londres', 'rue-d-amsterdam', 'rue-de-moscou'], # t =  2
-    ['rue-d-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  3
-    ['rue-d-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  4
-    ['rue-d-londres', 'rue-d-amsterdam', 'rue-de-moscou'], # t =  5
+    ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  0
+    ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  1
+    ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou'], # t =  2
+    ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  3
+    ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  4
+    ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou'], # t =  5
 ]
 
-def score(graph, paths, schedule) -> int:
-    car_stuck_time = [0] * len(car_paths)
-    car_paths_copy = deepcopy(car_paths)
-    for t in range(time):
+
+def score(paths: List[List[str]], schedule: List[List[str]], roads: Dict[str, int], max_time: int, car_score: int) -> int:
+    score = 0
+    car_stuck_time = [0] * len(paths)
+    car_paths_copy = deepcopy(paths)
+    for t in range(max_time):
         for car_id, car_path in enumerate(car_paths_copy):
-            if car_stuck_time[car_id] == 0: # TODO: Add queueing check
-                if car_paths[0] in green_light_schedule[i]:
-                    car_stuck_time[car_id] +=
+            if car_stuck_time[car_id] == 0:  # TODO: Add queueing check
+                if not car_path:
+                    score += (max_time - t) + car_score
+                    del car_paths_copy[car_id]
+                if car_path[0] in schedule[t]:  # TODO add queuing check
+                    car_stuck_time[car_id] += roads[car_path[0]]
+                    road_now_entered = car_paths_copy[car_id].pop(0)
+                    print(road_now_entered)
+            else:
+                car_stuck_time[car_id] -= 1
+    return score
 
 
+class TestScoring(unittest.TestCase):
 
+    def test_exmaple_scoring(self):
+        score_per_car = 1000
+        max_time = 6
+        schedule = [
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  0
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  1
+            ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou'], # t =  2
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  3
+            ['rue-de-londres', 'rue-d-athenes', 'rue-de-moscou'], # t =  4
+            ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou'], # t =  5
+        ]
+        car_paths = [
+            ['rue-de-londres', 'rue-d-amsterdam', 'rue-de-moscou', 'rue-de-rome'],
+            ['rue-d-athenes', 'rue-de-moscou', 'rue-de-londres'],
+        ]
+        road_lengths = {
+            'rue-d-amsterdam': 1,
+            "rue-de-londres": 1,
+            "rue-de-moscou": 3,
+            "rue-d-athenes": 1,
+            "rue-de-rome": 2
+        }
+        expected_score = 1002
+        self.assertEqual(expected_score, score(car_paths, schedule, road_lengths, max_time, car_score))
